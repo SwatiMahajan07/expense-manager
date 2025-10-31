@@ -3,7 +3,8 @@ import mongoose from "mongoose";
 const expenseSchema = new mongoose.Schema(
   {
     userId: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
       required: [true],
     },
     title: { type: String, required: [true, "Please provide a title"] },
@@ -21,7 +22,8 @@ const expenseSchema = new mongoose.Schema(
       required: [true],
     },
     category: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
       required: [true],
     },
     note: {
