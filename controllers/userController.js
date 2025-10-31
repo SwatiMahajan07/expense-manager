@@ -1,6 +1,8 @@
 import asyncHandler from "express-async-handler";
 import User from "../models/userModel.js";
 import { generateToken } from "../utils.js";
+import { DefaultCategories } from "../constants.js";
+import Category from "../models/categoryModel.js";
 
 export const registerUser = asyncHandler(async (req, res) => {
   const { name, email, password } = req.body;
@@ -19,6 +21,13 @@ export const registerUser = asyncHandler(async (req, res) => {
   });
 
   if (user) {
+    for (const category of DefaultCategories) {
+      const categoryFound = await Category.findOne({ title: category.title });
+      if (categoryFound) {
+        categoryFound.users.push(user.id);
+        await categoryFound.save();
+      }
+    }
     res.status(201).json({
       _id: user.id,
       name: user.name,

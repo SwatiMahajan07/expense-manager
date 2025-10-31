@@ -1,5 +1,6 @@
 import asyncHandler from "express-async-handler";
 import Expense from "../models/expenseModel.js";
+import Category from "../models/categoryModel.js";
 
 export const addExpense = asyncHandler(async (req, res) => {
   const { title, amount, paymentMethod, note, date, category } = req.body;
@@ -19,6 +20,19 @@ export const addExpense = asyncHandler(async (req, res) => {
     throw new Error("Please provide all required data");
   }
 
+  const categoryFound = await Category.findOne({
+    _id: category,
+    users: req.user._id,
+  });
+
+  if (!categoryFound) {
+    res.status(400).json({
+      success: false,
+      message: "Invalid category — not linked to this user",
+    });
+    throw new Error("Invalid category — not linked to this user");
+  }
+
   const expense = await Expense.create({
     userId: req.user._id,
     title,
@@ -26,18 +40,18 @@ export const addExpense = asyncHandler(async (req, res) => {
     paymentMethod,
     note,
     date,
-    category,
+    category: categoryFound._id,
   });
+
+  const populatedExpense = await Expense.findById(expense.id)
+    .populate("userId", "name email")
+    .populate("category", "title");
 
   if (expense) {
     res.status(201).json({
       success: true,
       message: "Expense added successfully",
-      data: {
-        userId: req.user._id,
-        expenseId: expense.id,
-        createdAt: expense.createdAt,
-      },
+      data: populatedExpense,
     });
   } else {
     res.status(400).json({
@@ -49,7 +63,9 @@ export const addExpense = asyncHandler(async (req, res) => {
 });
 
 export const getAllExpenses = asyncHandler(async (req, res) => {
-  const expenses = await Expense.find({ userId: req.user._id });
+  const expenses = await Expense.find({ userId: req.user._id })
+    .populate("userId", "name email")
+    .populate("category", "title");
 
   if (!expenses || expenses.length === 0) {
     res.status(404).json({
@@ -73,7 +89,9 @@ export const getExpenseById = asyncHandler(async (req, res) => {
   const expense = await Expense.findOne({
     _id: req.params.id,
     userId: req.user._id,
-  });
+  })
+    .populate("userId", "name email")
+    .populate("category", "title");
 
   if (expense) {
     res.status(200).json({
@@ -99,7 +117,21 @@ export const updateExpenseById = asyncHandler(async (req, res) => {
   if (amount) updates.amount = amount;
   if (paymentMethod) updates.paymentMethod = paymentMethod;
   if (note) updates.note = note;
-  if (category) updates.category = category;
+  if (category) {
+    const categoryFound = await Category.findOne({
+      _id: category,
+      users: req.user._id,
+    });
+
+    if (!categoryFound) {
+      res.status(400).json({
+        success: false,
+        message: "Invalid category — not linked to this user",
+      });
+      throw new Error("Invalid category — not linked to this user");
+    }
+    updates.category = categoryFound._id;
+  }
   if (date) updates.date = date;
 
   const expense = await Expense.findOne({
@@ -119,7 +151,9 @@ export const updateExpenseById = asyncHandler(async (req, res) => {
     { _id: expense.id },
     updates,
     { new: true, runValidators: true }
-  );
+  )
+    .populate("userId", "name email")
+    .populate("category", "title");
 
   if (updatedExpense) {
     res.status(200).json({
